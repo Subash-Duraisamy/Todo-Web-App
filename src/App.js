@@ -145,7 +145,7 @@ const App = () => {
   <span className="blue-letter">o</span>
   <span> </span>
   <span>L</span>
-  <span>i</span>
+  <span className="blue-letter">i</span>
   <span className="blue-letter">s</span>
   <span className="blue-letter">t</span>
 
