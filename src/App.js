@@ -22,17 +22,19 @@ const App = () => {
   const [task, setTask] = useState('');
   const [tasks, setTasks] = useState([]);
   const [message, setMessage] = useState('');
+  const [deletingTaskId, setDeletingTaskId] = useState(null);
 
   // Add task
   const addTask = async () => {
     if (task === '') {
-      setMessage("Task can't be empty!");
+      setMessage("Oops! A task without a name? That’s a no-go!");
       return;
     }
 
     try {
       const tasksCollectionRef = collection(db, "Col_ID");
-      const taskDocRef = doc(tasksCollectionRef, new Date().toISOString());
+      const timestamp = new Date().toISOString();
+      const taskDocRef = doc(tasksCollectionRef, timestamp);
 
       await setDoc(taskDocRef, {
         tasks: task,
@@ -41,7 +43,7 @@ const App = () => {
 
       setMessage("Task added!");
       setTask('');
-      fetchTasks();
+      fetchTasks(timestamp); // pass new task id to mark it
     } catch (e) {
       console.error("Error adding task: ", e);
       setMessage("Error adding task.");
@@ -49,36 +51,59 @@ const App = () => {
   };
 
   // Fetch tasks
-  const fetchTasks = async () => {
+  const fetchTasks = async (newTaskId = null) => {
     try {
       const querySnapshot = await getDocs(collection(db, "Col_ID"));
       const tasksList = [];
       querySnapshot.forEach((doc) => {
-        tasksList.push({ id: doc.id, ...doc.data() });
+        tasksList.push({
+          id: doc.id,
+          ...doc.data(),
+          isNew: doc.id === newTaskId
+        });
       });
+
       setTasks(tasksList);
+      if (newTaskId) {
+        setTimeout(() => {
+          setTasks((prev) =>
+            prev.map((task) =>
+              task.id === newTaskId ? { ...task, isNew: false } : task
+            )
+          );
+        }, 800);
+      }
     } catch (e) {
       console.error("Error fetching tasks: ", e);
       setMessage("Error fetching tasks.");
     }
   };
 
-  // Delete task
+  // Delete task with animation
   const deleteTask = async (taskId) => {
-    try {
-      await deleteDoc(doc(db, "Col_ID", taskId));
-      setMessage("Task deleted.");
-      fetchTasks();
-    } catch (e) {
-      console.error("Error deleting task: ", e);
-      setMessage("Error deleting task.");
-    }
+    setDeletingTaskId(taskId);
+    setTimeout(async () => {
+      try {
+        await deleteDoc(doc(db, "Col_ID", taskId));
+        setMessage("Task deleted.");
+        fetchTasks();
+        setDeletingTaskId(null);
+      } catch (e) {
+        console.error("Error deleting task: ", e);
+        setMessage("Error deleting task.");
+        setDeletingTaskId(null);
+      }
+    }, 500); // delay to allow animation
   };
 
   // Toggle complete
   const toggleTaskCompletion = async (taskId, currentStatus) => {
     try {
-      await setDoc(doc(db, "Col_ID", taskId), { completed: !currentStatus }, { merge: true });
+      await setDoc(
+        doc(db, "Col_ID", taskId),
+        { completed: !currentStatus },
+        { merge: true }
+      );
       fetchTasks();
     } catch (e) {
       console.error("Error toggling task: ", e);
@@ -88,7 +113,11 @@ const App = () => {
   // Edit task
   const editTask = async (taskId, newTask) => {
     try {
-      await setDoc(doc(db, "Col_ID", taskId), { tasks: newTask }, { merge: true });
+      await setDoc(
+        doc(db, "Col_ID", taskId),
+        { tasks: newTask },
+        { merge: true }
+      );
       setMessage("Task updated.");
       fetchTasks();
     } catch (e) {
@@ -102,7 +131,26 @@ const App = () => {
 
   return (
     <div className="App">
-      <h1>🔥 Firebase Todo App</h1>
+   <div className="heading-container">
+  <div className="hanging-nail"></div>
+  <h1 className="hanging-heading">
+  
+  {/* Todo List
+   */}
+  
+
+   <span >T</span>
+  <span >o</span>
+  <span className="blue-letter">d</span>
+  <span className="blue-letter">o</span>
+  <span> </span>
+  <span>L</span>
+  <span>i</span>
+  <span className="blue-letter">s</span>
+  <span className="blue-letter">t</span>
+
+  </h1>
+</div>
 
       <div className="input-wrapper">
         <input
@@ -119,8 +167,17 @@ const App = () => {
       <div className="task-list">
         {tasks.length > 0 ? (
           tasks.map((taskItem) => (
-            <div key={taskItem.id} className="task-wrapper">
-              <div className={`task-box ${taskItem.completed ? 'completed' : ''}`}>
+            <div
+              key={taskItem.id}
+              className={`task-wrapper ${taskItem.isNew ? 'newly-added' : ''} ${
+                deletingTaskId === taskItem.id ? 'deleting' : ''
+              }`}
+            >
+              <div
+                className={`task-box ${
+                  taskItem.completed ? 'completed' : ''
+                }`}
+              >
                 <input
                   type="text"
                   value={taskItem.tasks}
@@ -128,7 +185,9 @@ const App = () => {
                     const updatedTask = e.target.value;
                     setTasks((prev) =>
                       prev.map((task) =>
-                        task.id === taskItem.id ? { ...task, tasks: updatedTask } : task
+                        task.id === taskItem.id
+                          ? { ...task, tasks: updatedTask }
+                          : task
                       )
                     );
                   }}
@@ -136,13 +195,30 @@ const App = () => {
               </div>
 
               <div className="task-actions-outside">
-                <button onClick={() => editTask(taskItem.id, taskItem.tasks)} className="icon-btn">
+                <button
+                  onClick={() => editTask(taskItem.id, taskItem.tasks)}
+                  className="icon-btn"
+                >
                   <i className="fas fa-save"></i>
                 </button>
-                <button onClick={() => toggleTaskCompletion(taskItem.id, taskItem.completed)} className="icon-btn">
-                  <i className={`fas ${taskItem.completed ? 'fa-check-circle' : 'fa-circle'}`}></i>
+                <button
+                  onClick={() =>
+                    toggleTaskCompletion(taskItem.id, taskItem.completed)
+                  }
+                  className="icon-btn"
+                >
+                  <i
+                    className={`fas ${
+                      taskItem.completed
+                        ? 'fa-check-circle black-completed'
+                        : 'fa-circle blue-pending'
+                    }`}
+                  ></i>
                 </button>
-                <button onClick={() => deleteTask(taskItem.id)} className="icon-btn">
+                <button
+                  onClick={() => deleteTask(taskItem.id)}
+                  className="icon-btn"
+                >
                   <i className="fas fa-trash-alt"></i>
                 </button>
               </div>
